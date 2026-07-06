@@ -1,5 +1,4 @@
 import numpy as np
-import pandas as pd
 import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -18,29 +17,24 @@ st.markdown("""
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Work+Sans:wght@300;400;600;700&display=swap');
 
-        /* Die Schriftart auf Text-Elemente anwenden, aber Icons ausschließen */
         html, body, .stMarkdown, p, h1, h2, h3, h4, h5, h6, label, [data-testid="stMetricValue"] {
             font-family: 'Work Sans', sans-serif !important;
         }
 
-        /* Spezifisch für den Expander-Titel (verhindert das Überlagern) */
         .st-ae p, .st-an p {
             font-family: 'Work Sans', sans-serif !important;
         }
 
-        /* WICHTIG: Icons (Pfeile etc.) dürfen NICHT die Schriftart überschreiben */
         [data-testid="stExpander"] svg, 
         [data-icon], 
         .st-ae svg {
             font-family: inherit !important;
         }
 
-        /* Falls der Expander-Header immer noch zerschossen ist, hier gezielt korrigieren */
         summary[data-testid="stExpanderHeader"] {
             font-family: 'Work Sans', sans-serif !important;
         }
 
-        /* Das Icon im Expander schützen */
         summary[data-testid="stExpanderHeader"] svg {
             font-family: unset !important;
         }
@@ -50,22 +44,14 @@ st.markdown("""
 # Inject Custom CSS
 st.markdown("""
 <style>
-/* Change the overall app background color */
 .stApp {
     background-color: rgba(0,0,0,0); /* Light gray/off-white */
 }
 
-/* Target the header so it blends seamlessly with the background */
 [data-testid="stHeader"] {
     background-color: rgba(0,0,0,0);
 }
 
-/* 
-The Bulletproof Selector:
-1. Finds ANY vertical block that contains the 'custom-card' marker.
-2. EXCLUDES it if it contains a nested vertical block that also has the marker.
-Result: It only ever styles the absolute deepest container holding your marker.
-*/
 div[data-testid="stVerticalBlock"]:has(.custom-card):not(:has(div[data-testid="stVerticalBlock"] .custom-card)) {
     background-color: #FFFFFF !important;
     border-radius: 12px !important;
@@ -79,7 +65,6 @@ div[data-testid="stVerticalBlock"]:has(.custom-card):not(:has(div[data-testid="s
 
 
 def st_footer(text):
-    """Renders small, black footer text cleanly."""
     st.markdown("<hr style='margin: 1rem 0; border: none; border-top: 1px solid #E6E9EF;'>", unsafe_allow_html=True)
     st.markdown(
         f"<p style='font-size: 0.85rem; color: black; margin: 0;'>{text}</p>",
@@ -103,7 +88,31 @@ COLOR_M3 = "#F1A90E" # Model 3
 #   Streamlit Page Config
 # -------------------------
 st.set_page_config(layout="wide", page_title="DCA Visualizer")
+# Scaling for smaller screen size
+st.markdown(
+    """
+    <style>
+    /* Wenn der Bildschirm kleiner als 1400px ist (Laptops, iPads im Querformat) */
+    @media (max-width: 1400px) {
+        .main .block-container {
+            zoom: 0.88; /* Verkleinert die gesamte App auf 88% */
+            -moz-transform: scale(0.88); /* Fallback für Firefox */
+            -moz-transform-origin: top center;
+        }
+    }
 
+    /* Wenn der Bildschirm extrem klein wird (iPads im Hochformat) */
+    @media (max-width: 992px) {
+        .main .block-container {
+            zoom: 0.82; /* Verkleinert die App auf 82% */
+            -moz-transform: scale(0.82);
+            -moz-transform-origin: top center;
+        }
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 # -------------------------
 #   Data Generation
@@ -579,7 +588,7 @@ with col3:
 # ===============================================
 st.markdown("---")
 st.header("Model Comparison - Discrimination")
-st.markdown("Steyerberg et al. (2010) explain that a well-discriminating model is particularly important when resources are limited and only those who could benefit most from them, such as high-risk individuals (vs. low-risk individuals), should be allocated the resource. This is because measures of discrimination such as the area under the curve (AUC) for the receiver operating characteristic (ROC) curve tell you how well your model ranks individuals with the event higher than individuals without the event. As this is a highly relevant quality in various clinical scenarios, a model's discrimination performance is taken into account in DCA (Vickers et al., 2019), as illustrated below. Furthermore, we demonstrate across our different scenarios that a model’s discrimination performance is important, but not sufficient, for its clinical utility (NB).")
+st.markdown("A well-discriminating model is particularly important when resources are limited and only those who could benefit most from them, such as high-risk individuals (vs. low-risk individuals), should be allocated the resource (Steyerberg et al., 2010). This is because measures of discrimination such as the area under the curve (AUC) for the receiver operating characteristic (ROC) curve tell you how well your model ranks individuals with the event higher than individuals without the event. As this is a highly relevant quality in various clinical scenarios, a model's discrimination performance is taken into account in DCA (Vickers et al., 2019), as illustrated below. Furthermore, we demonstrate across our different scenarios that a model’s discrimination performance is important, but not sufficient, for its clinical utility (NB).")
 selected_mode = st.pills(
     "Selection of Scenario:",
     ["Free Analysis", "Scenario 1a: Same AUC, different NB", "Scenario 1b: Higher AUC, lower NB", "Scenario 2: Test Harm"],
@@ -765,7 +774,7 @@ if selected_mode == "Scenario 1b: Higher AUC, lower NB":
 # ============================================
 st.markdown("---")
 st.header("Model Comparison - Calibration")
-st.markdown("Steyerberg et al. (2010) explain that a well-calibrated model is particularly essential if you want to inform patients about their prognosis. This is because, calibration measures how well the predicted probabilities correspond to the true fraction of positives. Van Calster & Vickers (2015) noted that for a well-calibrated model approximately x out of 100 patients with a risk score of x% should actually have the respective outcome. As this, too, is a highly relevant quality of a model in different clinical scenarios, DCA takes a model's calibration into account as well (Vickers et al., 2019), as you can see below. We now want to compare three models that only differ in their respective **level of (mis)calibration**. Note that this is just an example for a specific form of miscalibration and that there are other forms of miscalibration (Van Calster & Vickers, 2015) not considered here.")
+st.markdown("A well-calibrated model is particularly essential if you want to inform patients about their prognosis (Steyerberg et al., 2010). This is because, calibration measures how well the predicted probabilities correspond to the true fraction of positives. Van Calster & Vickers (2015) noted that for a well-calibrated model approximately x out of 100 patients with a risk score of x% should actually have the respective outcome. As this, too, is a highly relevant quality of a model in different clinical scenarios, DCA takes a model's calibration into account as well (Vickers et al., 2019), as you can see below. We now want to compare three models that only differ in their respective **level of (mis)calibration**. Note that this is just an example for a specific form of miscalibration and that there are other forms of miscalibration (Van Calster & Vickers, 2015) not considered here.")
 # --- Page 3 Global Controls ---
 gc1, gc2 = st.columns(2)
 # fixed sample size at 5000, fixed AUC at 0.80
@@ -781,11 +790,6 @@ st.write("")
 
 # --- Page 3 Layout: 3 Columns ---
 col_dca, col_cal, col_controls = st.columns([1, 1, 1])
-#with col_dca:
-    #prev_comp = st.slider("Prevalence", 0.05, 0.95, 0.33, 0.01, key="prev_comp")
-#with col_cal:
-    #pt_comp = st.slider("Decision Threshold (pₜ)", 0.01, 0.99, 0.33, 0.01, key="pt_comp",
-                        #help="**Numbers needed**: How many interventions would I do to get one True Positive? **For instance:** I would perform 20 times intervention x to treat one person for whom the intervention is beneficial (i.e. with the event) -> **Odds** of 1:20, i.e. threshold of 0.0476 (4.76%)")
 
 # --- Column 3: Controls (Right Side) ---
 with col_controls:
@@ -831,3 +835,13 @@ with col_cal:
         st_footer("<b>Figure 6.</b> Calibration plot illustrating the relation between the mean predicted probabilities and the true fraction of positives for all three models.")
 
 st.success("💡 In line with the observations by Van Calster and Vickers (2015), you can see in Figure 5 that the impact of miscalibration on the NB depends on the level and forms of miscalibration, as well as the selected threshold probability (for a fixed prevalence). However, miscalibration generally almost always **results in a reduced NB**. At certain thresholds, miscalibrated models even drop below the default alternative strategies, i.e. indicating a model being clinically **harmful** at this threshold.")
+
+# ============================================
+#       PAGE 4: References
+# ============================================
+st.markdown("---")
+st.header("References")
+st.markdown("Steyerberg, E. W., Vickers, A. J., Cook, N. R., Gerds, T., Gonen, M., Obuchowski, N., Pencina, M. J., & Kattan, M. W. (2010). Assessing the performance of prediction models: A framework for traditional and novel measures. Epidemiology (Cambridge, Mass.), 21(1), 128–138. https://doi.org/10.1097/EDE.0b013e3181c30fb2\n\n"
+            "Van Calster, B., & Vickers, A. J. (2015). Calibration of Risk Prediction Models: Impact on Decision-Analytic Performance. Medical Decision Making, 35(2), 162–169. https://doi.org/10.1177/0272989X14547233\n\n"
+            "Vickers, A. J., & Elkin, E. B. (2006). Decision Curve Analysis: A Novel Method for Evaluating Prediction Models. Medical Decision Making, 26(6), 565–574. https://doi.org/10.1177/0272989X06295361\n\n"
+            "Vickers, A. J., van Calster, B., & Steyerberg, E. W. (2019). A simple, step-by-step guide to interpreting decision curve analysis. Diagnostic and Prognostic Research, 3(1), 18. https://doi.org/10.1186/s41512-019-0064-7")
