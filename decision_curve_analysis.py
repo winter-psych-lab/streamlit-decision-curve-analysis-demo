@@ -10,6 +10,7 @@ import streamlit as st
 import plotly.graph_objects as go
 import math
 
+
 matplotlib.use("Agg")  # for Streamlit
 
 ## Set font ##
@@ -180,7 +181,6 @@ def compute_dca_curve(y_true, probs, prevalence, test_harm=0.0):
         nb_vals.append(nb)
     return pts, np.array(nb_vals)
 
-
 def get_treat_all_none(prevalence):
     pts = np.linspace(0.01, 0.99, 100)
     nb_all = prevalence - (1.0 - prevalence) * (pts / (1.0 - pts))
@@ -234,7 +234,6 @@ def plot_combined_dca_kde(model_data, prevalence, threshold_pt, test_harm=0.0):
     ax1.set_xlim(0, 1)
     ax1.set_ylabel("Net Benefit")
     ax1.set_xlabel("Threshold Probability")
-    ax1.set_title("Decision Curve Analysis")
     ax1.legend(loc='upper right', fontsize='small')
     ax1.grid(True, alpha=0.1)
 
@@ -271,34 +270,56 @@ def display_nb_calc_detailed(y_true, probs, prev, pt, test_harm=0.0, use_harm=Fa
     term_tp = sens * prev
     term_fp = (1 - spec) * (1 - prev) * weight
 
-    st.markdown("### Net Benefit Formula")
-
     if use_harm:
         # Formula with Test Harm
-        st.latex(
-            r"NB = \text{sens} \times prev - (1 - \text{spec}) \times (1 - prev) \times \frac{p_t}{1 - p_t} - \text{Test Harm}")
-        st.markdown("##### Calculation")
-        st.latex(r'''
-        NB = (%.2f \times %.2f) - ((1 - %.2f) \times (1 - %.2f) \times \frac{%.2f}{1 - %.2f}) - %.4f
-        ''' % (sens, prev, spec, prev, pt, pt, test_harm))
+        st.latex(r"""
+        \boldsymbol{NB = \text{\textbf{TPR}} \times \pi - (1 - \text{\textbf{TNR}}) \times (1 - \pi) \times \frac{p_t}{1 - p_t} - \text{\textbf{Test Harm}}}
+        """)
 
-        st.latex(r'''
-        NB = %.4f - (%.2f \times %.2f \times %.2f) - %.4f
-        ''' % (term_tp, (1 - spec), (1 - prev), weight, test_harm))
+        st.latex(r"""
+                NB = (%.2f \times %.2f) - ((1 - %.2f) \times (1 - %.2f) \times \frac{%.2f}{1 - %.2f}) - %.4f
+                """ % (sens, prev, spec, prev, pt, pt, test_harm))
+        #st.latex(r'''
+        #NB = %.4f - (%.2f \times %.2f \times %.2f) - %.4f
+        #''' % (term_tp, (1 - spec), (1 - prev), weight, test_harm))
     else:
         # Standard Formula
-        st.latex(r"NB = \text{sens} \times prev - (1 - \text{spec}) \times (1 - prev) \times \frac{p_t}{1 - p_t}")
-        st.markdown("##### Calculation")
+        st.latex(
+            r"\boldsymbol{NB = \text{\textbf{TPR}} \times \pi - (1 - \text{\textbf{TNR}}) \times (1 - \pi) \times \frac{p_t}{1 - p_t}}")
         st.latex(r'''
         NB = (%.2f \times %.2f) - ((1 - %.2f) \times (1 - %.2f) \times \frac{%.2f}{1 - %.2f})
         ''' % (sens, prev, spec, prev, pt, pt))
 
+        #st.latex(r'''
+        #NB = %.4f - (%.2f \times %.2f \times %.2f)
+        #''' % (term_tp, (1 - spec), (1 - prev), weight))
+
+    #st.latex(r'''\mathbf{NB = %.4f}''' % nb)
+
+
+def display_nb_calc_short(y_true, probs, prev, pt, test_harm=0.0, use_harm=False):
+    sens, spec, tn, fp, fn, tp = calculate_metrics_at_pt(y_true, probs, pt)
+    nb = net_benefit(prev, sens, spec, pt, test_harm)
+    total = tn + fp + fn + tp
+
+
+    if use_harm:
+        # Formula with Test Harm
+        st.latex(r"\boldsymbol{NB = \frac{TP}{N} - \frac{FP}{N} \times \frac{p_t}{1 - p_t} - \text{\textbf{Test Harm}}}")
+
         st.latex(r'''
-        NB = %.4f - (%.2f \times %.2f \times %.2f)
-        ''' % (term_tp, (1 - spec), (1 - prev), weight))
+        NB = \frac{%.0f}{%.0f} - \frac{%.0f}{%.0f} \times \frac{%.2f}{1 - %.2f} - %.4f
+        ''' % (tp, total, fp, total, pt, pt, test_harm))
 
-    st.latex(r'''\mathbf{NB = %.4f}''' % nb)
+    else:
+        # Standard Formula
+        st.latex(r"\boldsymbol{NB = \frac{TP}{N} - \frac{FP}{N} \times \frac{p_t}{1 - p_t}}")
 
+        st.latex(r'''
+        NB = \frac{%.0f}{%.0f} - \frac{%.0f}{%.0f} \times \frac{%.2f}{1 - %.2f}
+        ''' % (tp, total, fp, total, pt, pt))
+
+    #st.latex(r'''\mathbf{NB = %.4f}''' % nb)
 
 def plot_calibration_multi(models_data):
     fig, ax = plt.subplots(figsize=(5, 5))
@@ -397,6 +418,37 @@ def plot_roc_multi(models_data):
     ax.legend(loc="lower right", fontsize='small')
     st.pyplot(fig)
 
+def create_radial_metric(value, label, color):
+    remainder = 1.0 - value if value <= 1.0 else 0.0
+
+    fig = go.Figure(data=[go.Pie(
+        values=[value, remainder],
+        hole=0.8,
+        marker=dict(colors=[color, "#EAEAEA"]),
+        sort=False,
+        direction="clockwise",
+        showlegend=False,
+        hoverinfo="skip",
+        textinfo = "none"
+    )])
+
+    fig.update_layout(
+        annotations=[dict(
+            text=f"<b>{value:.1%}</b><br><span style='font-size:12px;color:gray;'>{label}</span>",
+            x=0.5,
+            y=0.5,
+            font_size=18,
+            showarrow=False,
+            align="center"
+        )],
+        margin=dict(l=10, r=10, t=10, b=10),
+        height=140,
+        width=140,
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)"
+    )
+    return fig
+
 # -------------------------
 #   Streamlit App Layout
 # -------------------------
@@ -416,7 +468,7 @@ n_main = 5000
 auc_main = 0.80
 
 with c1:
-    prev_main = st.slider("Prevalence", 0.05, 0.95, 0.33, 0.01, key="prev_main")
+    prev_main = st.slider("Prevalence (π)", 0.05, 0.95, 0.33, 0.01, key="prev_main")
 
 with c2:
     pt_main = st.slider("Decision Threshold (pₜ)", 0.01, 0.99, 0.33, 0.01, key="pt_main", help="**Numbers needed**: How many interventions would I do to get one True Positive? **For instance:** I would perform 20 times intervention x to treat one person for whom the intervention is beneficial (i.e. with the event) -> **Odds** of 1:20, i.e. threshold of 0.0476 (4.76%)")
@@ -438,12 +490,14 @@ model_main_data = {'name': 'Main Model', 'y_true': y_main, 'probs': probs_main}
 sens, spec, tn, fp, fn, tp = calculate_metrics_at_pt(y_main, probs_main, pt_main)
 nb_main = net_benefit(prev_main, sens, spec, pt_main, test_harm=harm_val)
 
-# Layout (Page 1)
+
+#Layout Page 1
 col1, col2, col3 = st.columns([1, 1.2, 0.8])
 
 with col1:
     with st.container(border=True):
         st.markdown("<span class='custom-card'></span>", unsafe_allow_html=True)
+        st.markdown("### Decision Curve")
         # Pass harm value to plot function so DCA curve adjusts
         plot_combined_dca_kde(model_main_data, prev_main, pt_main, test_harm=harm_val)
         st_footer("<b>Figure 1.</b> Decision Curve Analysis and the corresponding risk distribution plot.")
@@ -452,31 +506,31 @@ with col2:
     # Pass harm value and toggle state to display function
     with st.container(border=True):
         st.markdown("<span class='custom-card'></span>", unsafe_allow_html=True)
+        st.markdown("### Net Benefit Calculation")
         display_nb_calc_detailed(y_main, probs_main, prev_main, pt_main, test_harm=harm_val, use_harm=use_harm)
+        st.write("")
+        m3, m4 = st.columns(2, gap="small")
+        with m3:
+            st.plotly_chart(create_radial_metric(sens, "Sensitivity (TPR)", "#E74C3C"), use_container_width=True,
+                            config={'displayModeBar': False})
+        with m4:
+            st.plotly_chart(create_radial_metric(spec, "Specificity (TNR)", "#3498DB"), use_container_width=True,
+                            config={'displayModeBar': False})
+        #st.markdown("------")
+        st.write("")
+        display_nb_calc_short(y_main, probs_main, prev_main, pt_main, test_harm=harm_val, use_harm=use_harm)
+        st.markdown("------")
+        st.markdown(
+            f"<div style='text-align: center; background: #E4F2E7; "
+            f"padding: 10px; border-radius: 6px; margin-top: -10px; color: #188C35;'>"
+            f"<span style='font-size: 11px; opacity: 0.85; text-transform: uppercase;'>Net Benefit Result</span><br>"
+            f"<strong style='font-size: 22px;'>NB = {nb_main:.4f}</strong>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+        st.write("")
 
-# Metrics
-    with st.container (border= True):
-        st.markdown("<span class='custom-card'></span>", unsafe_allow_html=True)
-        st.markdown("### **Metrics**")
-        _, content_col, _ = st.columns([0.25, 0.7, 0.05])
-        with content_col:
-            st.markdown("""
-                        <style>
-                            [data-testid="stMetricValue"] {
-                            font-size: 1.8rem !important;
-                            }
-                            .stDataFrame [data-testid="stTable"] th,
-                            .stDataFrame [data-testid="stTable"] td {
-                            }
-                        </style>
-                    """, unsafe_allow_html=True)
-            m1, m2 = st.columns(2, gap="small")
-            m1.metric("Net Benefit", f"{nb_main:.4f}")
-            m2.metric("AUC", f"{auc_main:.3f}")
-
-            m3, m4 = st.columns(2)
-            m3.metric("Sensitivity", f"{sens:.1%}")
-            m4.metric("Specificity", f"{spec:.1%}")
+    #irgendwo noch hinschreiben dass auc gefixed ist?
 
 with col3:
     with st.container(border=True):
