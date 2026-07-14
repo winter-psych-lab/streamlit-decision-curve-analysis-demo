@@ -302,6 +302,9 @@ def display_nb_calc_short(y_true, probs, prev, pt, test_harm=0.0, use_harm=False
     nb = net_benefit(prev, sens, spec, pt, test_harm)
     total = tn + fp + fn + tp
 
+    scale_target = 1000
+    tp_1000 = int(round((tp / total) * scale_target)) if total > 0 else 0
+    fp_1000 = int(round((fp / total) * scale_target)) if total > 0 else 0
 
     if use_harm:
         # Formula with Test Harm
@@ -309,7 +312,7 @@ def display_nb_calc_short(y_true, probs, prev, pt, test_harm=0.0, use_harm=False
 
         st.latex(r'''
         NB = \frac{%.0f}{%.0f} - \frac{%.0f}{%.0f} \times \frac{%.2f}{1 - %.2f} - %.4f
-        ''' % (tp, total, fp, total, pt, pt, test_harm))
+        ''' % (tp_1000, scale_target, fp_1000, scale_target, pt, pt, test_harm))
 
     else:
         # Standard Formula
@@ -317,7 +320,7 @@ def display_nb_calc_short(y_true, probs, prev, pt, test_harm=0.0, use_harm=False
 
         st.latex(r'''
         NB = \frac{%.0f}{%.0f} - \frac{%.0f}{%.0f} \times \frac{%.2f}{1 - %.2f}
-        ''' % (tp, total, fp, total, pt, pt))
+        ''' % (tp_1000, scale_target, fp_1000, scale_target, pt, pt))
 
     #st.latex(r'''\mathbf{NB = %.4f}''' % nb)
 
@@ -453,6 +456,7 @@ def create_radial_metric(value, label, color):
 #   Streamlit App Layout
 # -------------------------
 st.title("Decision Curve Analysis Visualizer")
+st.markdown("###### Created by Sarah E.-M. Wellms & Nils R. Winter, University of Münster")
 st.markdown("Decision Curve Analysis (DCA) is a method for estimating and evaluating a model's clinical utility by quantifying clinical consequences in terms of benefits and harms and thereby estimating the net benefit (NB) of a model. The evaluation of the potential clinical utility of a model is an essential addition to the evaluation of the model's statistical predictive performance, as the latter does not account for the clinical consequences and therefore is not sufficiently informative when deciding whether to use the respective model in clinical practice. ")
 st.write("")
 # ==========================================
@@ -468,10 +472,10 @@ n_main = 5000
 auc_main = 0.80
 
 with c1:
-    prev_main = st.slider("Prevalence (π)", 0.05, 0.95, 0.33, 0.01, key="prev_main")
+    prev_main = st.slider("Prevalence (π)", 0.05, 0.95, 0.30, 0.01, key="prev_main")
 
 with c2:
-    pt_main = st.slider("Decision Threshold (pₜ)", 0.01, 0.99, 0.33, 0.01, key="pt_main", help="**Numbers needed**: How many interventions would I do to get one True Positive? **For instance:** I would perform 20 times intervention x to treat one person for whom the intervention is beneficial (i.e. with the event) -> **Odds** of 1:20, i.e. threshold of 0.0476 (4.76%)")
+    pt_main = st.slider("Decision Threshold (pₜ)", 0.01, 0.99, 0.4, 0.01, key="pt_main", help="**Numbers needed**: How many interventions would I do to get one True Positive? **For instance:** I would perform 20 times intervention x to treat one person for whom the intervention is beneficial (i.e. with the event) -> **Odds** of 1:20, i.e. threshold of 0.0476 (4.76%)")
 
     # Row 2: Test Harm
 with c4:
@@ -538,13 +542,21 @@ with col3:
         st.markdown("### **Confusion Matrix**")
         # Adjust Scale for Graphic
         total = tn + fp + fn + tp
+        # Scale down to N=1000
+        scale_target = 1000
+
+        tp_1000 = int(round((tp / total) * scale_target)) if total > 0 else 0
+        fp_1000 = int(round((fp / total) * scale_target)) if total > 0 else 0
+        fn_1000 = int(round((fn / total) * scale_target)) if total > 0 else 0
+        tn_1000 = scale_target - (tp_1000 + fp_1000 + fn_1000) if total > 0 else 0
+
         def scale_to_100(value, total):
             return int(round((value / total) * 100)) if total > 0 else 0
 
         s_tp = scale_to_100(tp, total)
         s_fp = scale_to_100(fp, total)
         s_fn = scale_to_100(fn, total)
-        s_tn = scale_to_100(tn, total)
+        s_tn = 100 - (s_tp + s_fp + s_fn) if total > 0 else 0
 
         COLS = 7
         GAP_Y = 5
@@ -569,12 +581,12 @@ with col3:
         fig = go.Figure()
 
         quadrants = [
-            (s_tp, tp, "True Positive", "#E74C3C", -2, 0, "up", max_rows_top, False),
-            (s_fp, fp, "False Positive", "#3498DB", 7, 0, "up", max_rows_top, True),
-            (s_fn, fn, "False Negative", "#E74C3C", -2, -GAP_Y, "down", max_rows_bottom, True),
-            (s_tn, tn, "True Negative", "#3498DB", 7, -GAP_Y, "down", max_rows_bottom, False)
+            (s_tp, tp_1000, "True Positive", "#E74C3C", -2, 0, "up", max_rows_top, False),
+            (s_fp, fp_1000, "False Positive", "#3498DB", 7, 0, "up", max_rows_top, True),
+            (s_fn, fn_1000, "False Negative", "#E74C3C", -2, -GAP_Y, "down", max_rows_bottom, True),
+            (s_tn, tn_1000, "True Negative", "#3498DB", 7, -GAP_Y, "down", max_rows_bottom, False)
         ]
-        for s_count, real_count, label, color, ox, oy, direct, m_rows, false_categorized in quadrants:
+        for s_count, scaled_count, label, color, ox, oy, direct, m_rows, false_categorized in quadrants:
             if s_count > 0:
                 x, y = get_coords(s_count, ox, oy, direct, m_rows)
                 if false_categorized:
@@ -600,23 +612,23 @@ with col3:
                     mode='markers',
                     marker=marker_style,
                     name=f"{label}",
-                    hovertemplate=f"<b>{label}</b><br>Percentage: %{{text}}%<extra></extra>",
-                    text=[round(real_count / total * 100, 1)] * s_count
+                    hovertemplate=f"<b>{label}</b><br>Percentage: {s_count}%<extra></extra>",
+                    #text=[round(s_count,1)] * s_count
                 ))
 
         plotly_font = dict(family="Work Sans, sans-serif", size=13, color="black")
         plotly_font_bold = dict(family="Work Sans, sans-serif", size=14, color="black")
         #Predicted positive
         y_pos_labels = max_rows_top + 0.8
-        fig.add_annotation(x=1.2, y=y_pos_labels, text=f"True Positive (n={tp})", showarrow=False, font=plotly_font)
-        fig.add_annotation(x=10.2, y=y_pos_labels, text=f"False Positive (n={fp})", showarrow=False, font=plotly_font)
-        fig.add_annotation(x=5.75, y=y_pos_labels + 1.5, text=f"<b>PREDICTED POSITIVE (n={tp + fp})</b>", showarrow=False,
+        fig.add_annotation(x=1.2, y=y_pos_labels, text=f"True Positive (n={tp_1000})", showarrow=False, font=plotly_font)
+        fig.add_annotation(x=10.2, y=y_pos_labels, text=f"False Positive (n={fp_1000})", showarrow=False, font=plotly_font)
+        fig.add_annotation(x=5.75, y=y_pos_labels + 1.5, text=f"<b>PREDICTED POSITIVE (n={tp_1000 + fp_1000})</b>", showarrow=False,
                            font=plotly_font_bold)
         #Predicted negative
         y_neg_labels_top = -GAP_Y +1.2
-        fig.add_annotation(x=1.2, y=y_neg_labels_top, text=f"False Negative (n={fn})", showarrow=False, font=plotly_font)
-        fig.add_annotation(x=10.2, y=y_neg_labels_top, text=f"True Negative (n={tn})", showarrow=False, font=plotly_font)
-        fig.add_annotation(x=5.75, y=y_neg_labels_top + 1.5, text=f"<b>PREDICTED NEGATIVE (n={tn + fn})</b>", showarrow=False,
+        fig.add_annotation(x=1.2, y=y_neg_labels_top, text=f"False Negative (n={fn_1000})", showarrow=False, font=plotly_font)
+        fig.add_annotation(x=10.2, y=y_neg_labels_top, text=f"True Negative (n={tn_1000})", showarrow=False, font=plotly_font)
+        fig.add_annotation(x=5.75, y=y_neg_labels_top + 1.5, text=f"<b>PREDICTED NEGATIVE (n={tn_1000 + fn_1000})</b>", showarrow=False,
                            font=plotly_font_bold)
 
         deepest_row = -GAP_Y - (max_rows_bottom - 1)
@@ -633,7 +645,7 @@ with col3:
 
         st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
 
-        st_footer(f"<b>Figure 2.</b> Confusion Matrix as a function of prevalence and the decision threshold. One icon is approximately equivalent to {total / 100:.0f} individuals (N={total}).")
+        st_footer(f"<b>Figure 2.</b> Confusion Matrix as a function of prevalence and the decision threshold. One icon is approximately equivalent to 10 individuals (scaled to N={scale_target}).")
 
 
 
@@ -895,7 +907,14 @@ st.success("💡 In line with the observations by Van Calster and Vickers (2015)
 # ============================================
 st.markdown("---")
 st.header("References")
-st.markdown("Steyerberg, E. W., Vickers, A. J., Cook, N. R., Gerds, T., Gonen, M., Obuchowski, N., Pencina, M. J., & Kattan, M. W. (2010). Assessing the performance of prediction models: A framework for traditional and novel measures. Epidemiology (Cambridge, Mass.), 21(1), 128–138. https://doi.org/10.1097/EDE.0b013e3181c30fb2\n\n"
+st.markdown("Baker, S. G., Calster, B. V., & Steyerberg, E. W. (2012). Evaluating a New Marker for Risk Prediction Using the Test Tradeoff: An Update. The International Journal of Biostatistics, 8(1), 1–37. https://doi.org/10.1515/1557-4679.1395\n\n"
+            "Baker, S. G., Cook, N. R., Vickers, A., & Kramer, B. S. (2009). Using relative utility curves to evaluate risk prediction. Journal of the Royal Statistical Society. Series A, (Statistics in Society), 172(4), 729–748. https://doi.org/10.1111/j.1467-985X.2009.00592.x\n\n"
+            "Steyerberg, E. W., Vickers, A. J., Cook, N. R., Gerds, T., Gonen, M., Obuchowski, N., Pencina, M. J., & Kattan, M. W. (2010). Assessing the performance of prediction models: A framework for traditional and novel measures. Epidemiology (Cambridge, Mass.), 21(1), 128–138. https://doi.org/10.1097/EDE.0b013e3181c30fb2\n\n"
+            "Van Calster, B., Collins, G. S., Vickers, A. J., Wynants, L., Kerr, K. F., Barreñada, L., Varoquaux, G., Singh, K., Moons, K. G., Hernandez-Boussard, T., Timmerman, D., McLernon, D. J., van Smeden, M., & Steyerberg, E. W. (2025). Evaluation of performance measures in predictive artificial intelligence models to support medical decisions: Overview and guidance. The Lancet Digital Health, 7(12), 100916. https://doi.org/10.1016/j.landig.2025.100916\n\n"
             "Van Calster, B., & Vickers, A. J. (2015). Calibration of Risk Prediction Models: Impact on Decision-Analytic Performance. Medical Decision Making, 35(2), 162–169. https://doi.org/10.1177/0272989X14547233\n\n"
+            "Van Calster, B., Wynants, L., Verbeek, J. F. M., Verbakel, J. Y., Christodoulou, E., Vickers, A. J., Roobol, M. J., & Steyerberg, E. W. (2018). Reporting and Interpreting Decision Curve Analysis: A Guide for Investigators. European Urology, 74(6), 796–804. https://doi.org/10.1016/j.eururo.2018.08.038\n\n"
+            "Vickers, A. J., Cronin, A. M., Elkin, E. B., & Gonen, M. (2008). Extensions to decision curve analysis, a novel method for evaluating diagnostic tests, prediction models and molecular markers. BMC Medical Informatics and Decision Making, 8, 53. https://doi.org/10.1186/1472-6947-8-53\n\n"
             "Vickers, A. J., & Elkin, E. B. (2006). Decision Curve Analysis: A Novel Method for Evaluating Prediction Models. Medical Decision Making, 26(6), 565–574. https://doi.org/10.1177/0272989X06295361\n\n"
+            "Vickers, A. J., & Holland, F. (2021). Decision curve analysis to evaluate the clinical benefit of prediction models. The Spine Journal, 21(10), 1643–1648. https://doi.org/10.1016/j.spinee.2021.02.024\n\n"
+            "Vickers, A. J., Van Calster, B., & Steyerberg, E. W. (2016). Net benefit approaches to the evaluation of prediction models, molecular markers, and diagnostic tests. The BMJ, 352, i6. https://doi.org/10.1136/bmj.i6\n\n"
             "Vickers, A. J., van Calster, B., & Steyerberg, E. W. (2019). A simple, step-by-step guide to interpreting decision curve analysis. Diagnostic and Prognostic Research, 3(1), 18. https://doi.org/10.1186/s41512-019-0064-7")
